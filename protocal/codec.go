@@ -1,16 +1,13 @@
 package protocal
 
 import (
-	"bufio"
 	"fmt"
-	"github.com/tarm/serial"
-	"log"
 	"strings"
 )
 
 type codec interface {
-	decode(in []byte) (weight, error)
-	getDelimit() byte
+	Decode(in []byte) (weight, error)
+	GetDelimit() byte
 }
 
 type weight struct {
@@ -37,37 +34,6 @@ func (w weight) String() string {
 		result = append(result, strings.Repeat("0", digitDiff)...)
 	}
 	return string(result)
-}
-
-type WeightReader struct {
-	portName string
-}
-
-func NewWeightReader(portName string) WeightReader {
-	return WeightReader{portName: portName}
-}
-
-func (w *WeightReader) Listen(tf int) {
-	c := &serial.Config{Name: w.portName, Baud: 9600}
-	s, err := serial.OpenPort(c)
-	if err != nil {
-		panic(err)
-	}
-	log.Println("connected:", c.Name)
-	reader := bufio.NewReader(s)
-	cdc := NewCodec(tf)
-	log.Println("listening to: TF=", tf)
-	for {
-		source, err := reader.ReadBytes(cdc.getDelimit())
-		if err != nil {
-			panic(err)
-		}
-		weight, err := cdc.decode(source)
-		if err != nil {
-			log.Fatal(err)
-		}
-		log.Printf("%x=>%s", source, weight.String())
-	}
 }
 
 func NewCodec(tf int) codec {

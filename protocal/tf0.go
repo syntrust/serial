@@ -17,11 +17,11 @@ const (
 type tf0 struct {
 }
 
-func (t tf0) getDelimit() byte {
+func (t tf0) GetDelimit() byte {
 	return ETX
 }
 
-func (t tf0) decode(source []byte) (weight, error) {
+func (t tf0) Decode(source []byte) (weight, error) {
 	if len(source) != 12 || source[0] != STX || source[11] != ETX {
 		return weight{}, fmt.Errorf("invalid data: %x", source)
 	}

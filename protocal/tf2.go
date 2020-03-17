@@ -16,10 +16,10 @@ type tf23 struct {
 	frameLen int
 }
 
-func (t tf23) getDelimit() byte {
+func (t tf23) GetDelimit() byte {
 	return EQUAL
 }
-func (t tf23) decode(source []byte) (weight, error) {
+func (t tf23) Decode(source []byte) (weight, error) {
 	if len(source) != t.frameLen || source[t.frameLen-1] != EQUAL {
 		return weight{}, fmt.Errorf("invalid data: %x", source)
 	}
