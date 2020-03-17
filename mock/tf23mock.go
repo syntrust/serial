@@ -6,15 +6,12 @@ import (
 	"strings"
 )
 
-type tf23mock struct {
+type Tf23Mock struct {
 	frameLen int
 }
 
-func (t tf23mock) send() {
-	in := make(chan []byte)
-	go serialOut(in, "/dev/ttyS1")
+func (t Tf23Mock) Send(data []float64, in chan []byte) {
 	//max width: 7
-	data := []float64{9.1, +20.00, 4252.97, 124.8209, 99984, 89.01, -1.8, 0.0, .622}
 	for _, d := range data {
 		formatted := fmt.Sprintf("%v", d)
 		item, err := t.encode(formatted)
@@ -23,6 +20,7 @@ func (t tf23mock) send() {
 			continue
 		}
 		var stream []byte
+		//continuously send 5 times
 		for i := 0; i < 5; i++ {
 			stream = append(stream, item...)
 			stream = append(stream, '=')
@@ -32,7 +30,7 @@ func (t tf23mock) send() {
 	}
 }
 
-func (t tf23mock) encode(input string) ([]byte, error) {
+func (t Tf23Mock) encode(input string) ([]byte, error) {
 	if (strings.Index(input, ".") < 0 || strings.Index(input, ".") > t.frameLen-2) &&
 		len(input) > t.frameLen-1 {
 		return nil, fmt.Errorf("input overflow: %s", input)

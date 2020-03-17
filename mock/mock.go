@@ -16,11 +16,28 @@ const (
 	X_OFFSET      = 0x37
 )
 
-func main() {
-	tf23mock{FRAME_LEN_TF3}.send()
+type Weigh interface {
+	encode(input string) ([]byte, error)
+	Send(data []float64, in chan []byte)
 }
 
-func serialOut(inputs chan []byte, portName string) {
+func NewMock(tf int) Weigh {
+	switch tf {
+	case 0:
+		return Tf0Mock{}
+	case 2:
+		return Tf23Mock{
+			frameLen: FRAME_LEN_TF2,
+		}
+	case 3:
+		return Tf23Mock{
+			frameLen: FRAME_LEN_TF3,
+		}
+	default:
+		return Tf0Mock{}
+	}
+}
+func SerialOut(inputs chan []byte, portName string) {
 	c := &serial.Config{Name: portName, Baud: 9600}
 	s, err := serial.OpenPort(c)
 	if err != nil {

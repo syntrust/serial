@@ -9,7 +9,6 @@ import (
 )
 
 type codec interface {
-	encode(in string) ([]byte, error)
 	decode(in []byte) (weight, error)
 	getDelimit() byte
 }

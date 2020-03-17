@@ -19,10 +19,6 @@ type tf23 struct {
 func (t tf23) getDelimit() byte {
 	return EQUAL
 }
-func (t tf23) encode(in string) ([]byte, error) {
-	panic("implement me")
-}
-
 func (t tf23) decode(source []byte) (weight, error) {
 	if len(source) != t.frameLen || source[t.frameLen-1] != EQUAL {
 		return weight{}, fmt.Errorf("invalid data: %x", source)

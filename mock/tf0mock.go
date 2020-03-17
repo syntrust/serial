@@ -8,14 +8,11 @@ import (
 	"strings"
 )
 
-type tf0 struct {
+type Tf0Mock struct {
 }
 
-func (t tf0) send() {
-	in := make(chan []byte)
-	go serialOut(in, "/dev/ttyS1")
+func (t Tf0Mock) Send(data []float64, in chan []byte) {
 	//max width: 7; max precision: 4
-	data := []float64{9.1, +20.00, 4252.97, 124.8209, 99984, 89.01, -1.8, 0.0, .622}
 	fmts := []string{"%.1f", "%+.1f", "%7.2f", "%6.f", "%7.4f"}
 	for _, f := range fmts {
 		fmt.Println("=======" + f + "===========")
@@ -32,7 +29,7 @@ func (t tf0) send() {
 	}
 }
 
-func (t tf0) encode(input string) ([]byte, error) {
+func (t Tf0Mock) encode(input string) ([]byte, error) {
 	size, withDot := len(input), strings.Contains(input, ".")
 	withSign := strings.Contains(input, string([]byte{PLUS})) || strings.Contains(input, string([]byte{MINUS}))
 	if withSign {

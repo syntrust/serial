@@ -20,9 +20,6 @@ type tf0 struct {
 func (t tf0) getDelimit() byte {
 	return ETX
 }
-func (t tf0) encode(in string) ([]byte, error) {
-	panic("implement me")
-}
 
 func (t tf0) decode(source []byte) (weight, error) {
 	if len(source) != 12 || source[0] != STX || source[11] != ETX {
