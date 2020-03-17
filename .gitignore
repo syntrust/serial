@@ -1,4 +1,4 @@
 *.exe
 *.idea
-cmd
-mock
+cmd/cmd
+cmd/mock/mock
