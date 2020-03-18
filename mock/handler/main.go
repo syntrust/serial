@@ -10,7 +10,7 @@ import (
 	"serialdemo/service"
 )
 
-var publicKey, _ = service.LoadPublicKey()
+var publicKey, _ = service.LoadPublicKey("public.key")
 
 func scale(w http.ResponseWriter, r *http.Request) {
 	var info service.WeightInfo
@@ -20,26 +20,18 @@ func scale(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, err.Error(), http.StatusBadRequest)
 		return
 	}
-
 	if !verifySignature(info) {
 		log.Println("invalid signature!")
 		http.Error(w, "invalid signature", http.StatusUnauthorized)
 		return
 	}
 	// Do something with the WeightInfo struct...
-	fmt.Fprintf(w, "WeightInfo: %+v", info)
-	log.Printf("WeightInfo: %+v", info)
+	fmt.Fprintf(w, "WeightInfo: %+v", info.WeightInfoToSign)
+	log.Printf("WeightInfo: %+v", info.WeightInfoToSign)
 }
 
 func verifySignature(info service.WeightInfo) bool {
-	signInfo := &service.WeightInfo{
-		Weight:    info.Weight,
-		Vehicle:   info.Vehicle,
-		ScaleSN:   info.ScaleSN,
-		Location:  info.Location,
-		TimeStamp: info.TimeStamp,
-	}
-	jsonBytes, _ := json.Marshal(signInfo)
+	jsonBytes, _ := json.Marshal(info.WeightInfoToSign)
 	r, s := new(big.Int).SetBytes(info.R), new(big.Int).SetBytes(info.S)
 	return ecdsa.Verify(publicKey, service.Hash(jsonBytes), r, s)
 }

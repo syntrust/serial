@@ -16,7 +16,7 @@ import (
 )
 
 var (
-	privateKey, _ = loadPrivateKey("keys/private.key")
+	privateKey, _ = loadPrivateKey("private.key")
 	url           = "http://localhost:8080/scale"
 )
 
@@ -25,13 +25,16 @@ type WeightReader struct {
 }
 
 type WeightInfo struct {
+	WeightInfoToSign
+	R []byte
+	S []byte
+}
+type WeightInfoToSign struct {
 	Weight    string
 	Vehicle   string
 	ScaleSN   string
 	Location  string
 	TimeStamp int64
-	R         []byte
-	S         []byte
 }
 
 func NewWeightReader(portName string) WeightReader {
@@ -66,15 +69,14 @@ func (w *WeightReader) Listen(tf int) {
 }
 
 func (w *WeightReader) post(weight string) error {
-	fmt.Println("posting weight", w)
-	weightInfo := &WeightInfo{
+	infoToSign := &WeightInfoToSign{
 		Weight:    weight,
 		Vehicle:   "vehicle1",
 		ScaleSN:   "scale1",
 		Location:  "location1",
 		TimeStamp: time.Now().Unix(),
 	}
-	err := w.sign(weightInfo)
+	weightInfo, err := w.sign(infoToSign)
 	if err != nil {
 		return err
 	}
@@ -82,7 +84,7 @@ func (w *WeightReader) post(weight string) error {
 	if err != nil {
 		return err
 	}
-	fmt.Println("post ", jsonValue)
+	fmt.Println("post ", string(jsonValue))
 	resp, err := http.Post(url, "application/json", bytes.NewBuffer(jsonValue))
 	if err != nil {
 		return err
@@ -91,22 +93,18 @@ func (w *WeightReader) post(weight string) error {
 	return nil
 }
 
-func (w *WeightReader) sign(info *WeightInfo) error {
-	jsonValue, _ := json.Marshal(info)
-	fmt.Println("sign ", jsonValue)
+func (w *WeightReader) sign(infoToSign *WeightInfoToSign) (*WeightInfo, error) {
+	jsonValue, _ := json.Marshal(infoToSign)
+	fmt.Println("sign ", string(jsonValue))
 	r, s, err := ecdsa.Sign(rand.Reader, privateKey, Hash(jsonValue))
 	if err != nil {
-		return err
+		return nil, err
 	}
-	info.R, err = r.MarshalText()
-	if err != nil {
-		return err
+	info := &WeightInfo{
+		WeightInfoToSign: *infoToSign,
 	}
-	info.R, err = s.MarshalText()
-	if err != nil {
-		return err
-	}
-	return nil
+	info.R, info.S = r.Bytes(), s.Bytes()
+	return info, nil
 }
 
 func Hash(b []byte) []byte {

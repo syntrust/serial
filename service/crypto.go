@@ -9,6 +9,9 @@ import (
 
 func loadPrivateKey(fname string) (*ecdsa.PrivateKey, error) {
 	pemEncoded, err := loadPem(fname)
+	if err != nil {
+		return nil, err
+	}
 	block, _ := pem.Decode(pemEncoded)
 	x509Encoded := block.Bytes
 	privateKey, err := x509.ParseECPrivateKey(x509Encoded)
@@ -37,8 +40,8 @@ func loadPem(fname string) ([]byte, error) {
 	return pemEncoded, nil
 }
 
-func LoadPublicKey() (*ecdsa.PublicKey, error) {
-	pemEncoded, err := loadPem("keys/public.key")
+func LoadPublicKey(fname string) (*ecdsa.PublicKey, error) {
+	pemEncoded, err := loadPem(fname)
 	if err != nil {
 		return nil, err
 	}
