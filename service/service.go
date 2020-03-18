@@ -3,6 +3,9 @@ package service
 import (
 	"bufio"
 	"bytes"
+	"crypto/ecdsa"
+	"crypto/rand"
+	"crypto/sha256"
 	"encoding/json"
 	"fmt"
 	"github.com/tarm/serial"
@@ -12,8 +15,23 @@ import (
 	"time"
 )
 
+var (
+	privateKey, _ = loadPrivateKey("keys/private.key")
+	url           = "http://localhost:8080/scale"
+)
+
 type WeightReader struct {
 	portName string
+}
+
+type WeightInfo struct {
+	Weight    string
+	Vehicle   string
+	ScaleSN   string
+	Location  string
+	TimeStamp int64
+	R         []byte
+	S         []byte
 }
 
 func NewWeightReader(portName string) WeightReader {
@@ -37,40 +55,62 @@ func (w *WeightReader) Listen(tf int) {
 		}
 		weight, err := cdc.Decode(source)
 		if err != nil {
-			log.Fatal(err)
+			log.Println("ERROR", err)
 		}
 		log.Printf("%x=>%s", source, weight.String())
-		post(weight.String())
+		err = w.post(weight.String())
+		if err != nil {
+			log.Println("ERROR", err)
+		}
 	}
 }
 
-type WeightInfo struct {
-	Weight    string
-	Vehicle   string
-	ScaleSN   string
-	Location  string
-	TimeStamp int64
-}
-
-func post(w string) {
-
+func (w *WeightReader) post(weight string) error {
 	fmt.Println("posting weight", w)
 	weightInfo := &WeightInfo{
-		Weight:    w,
+		Weight:    weight,
 		Vehicle:   "vehicle1",
 		ScaleSN:   "scale1",
 		Location:  "location1",
 		TimeStamp: time.Now().Unix(),
 	}
-
-	fmt.Println("posting weightInfo", weightInfo)
-	jsonValue, _ := json.Marshal(weightInfo)
-
-	fmt.Println("posting jsonValue", string(jsonValue))
-	url := "http://localhost:8080/scale"
+	err := w.sign(weightInfo)
+	if err != nil {
+		return err
+	}
+	jsonValue, err := json.Marshal(weightInfo)
+	if err != nil {
+		return err
+	}
+	fmt.Println("post ", jsonValue)
 	resp, err := http.Post(url, "application/json", bytes.NewBuffer(jsonValue))
 	if err != nil {
-		log.Fatal(err)
+		return err
 	}
 	fmt.Println("response Status:", resp.Status)
+	return nil
+}
+
+func (w *WeightReader) sign(info *WeightInfo) error {
+	jsonValue, _ := json.Marshal(info)
+	fmt.Println("sign ", jsonValue)
+	r, s, err := ecdsa.Sign(rand.Reader, privateKey, Hash(jsonValue))
+	if err != nil {
+		return err
+	}
+	info.R, err = r.MarshalText()
+	if err != nil {
+		return err
+	}
+	info.R, err = s.MarshalText()
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+func Hash(b []byte) []byte {
+	h := sha256.New()
+	h.Write(b)
+	return h.Sum(nil)
 }

@@ -1,4 +1,4 @@
-package mock
+package device
 
 import (
 	"github.com/tarm/serial"
