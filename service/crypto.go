@@ -2,10 +2,28 @@ package service
 
 import (
 	"crypto/ecdsa"
+	"crypto/rand"
+	"crypto/sha256"
 	"crypto/x509"
+	"encoding/json"
 	"encoding/pem"
 	"os"
 )
+
+func sign(infoToSign interface{}) ([]byte, []byte, error) {
+	jsonValue, _ := json.Marshal(infoToSign)
+	r, s, err := ecdsa.Sign(rand.Reader, privateKey, Hash(jsonValue))
+	if err != nil {
+		return nil, nil, err
+	}
+	return r.Bytes(), s.Bytes(), nil
+}
+
+func Hash(b []byte) []byte {
+	h := sha256.New()
+	h.Write(b)
+	return h.Sum(nil)
+}
 
 func loadPrivateKey(fname string) (*ecdsa.PrivateKey, error) {
 	pemEncoded, err := loadPem(fname)

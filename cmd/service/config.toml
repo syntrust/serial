@@ -1,0 +1,12 @@
+
+ScaleSN = "1"           #地磅序列号
+Location = "沙场1"      #位置信息
+PortName = "COM1"       #串口名称
+Baud = 9600             #波特率
+TF = 0                  #通讯方式
+Duration = 5000         #取值持续时长(毫秒）
+Interval = 100          #读取间隔时长（毫秒）
+Deviation = 20          #可接受误差（千克）
+
+#数据接收网址
+BackendURL = "http://localhost:8080/scale"

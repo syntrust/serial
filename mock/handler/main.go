@@ -3,7 +3,6 @@ package main
 import (
 	"crypto/ecdsa"
 	"encoding/json"
-	"fmt"
 	"log"
 	"math/big"
 	"net/http"
@@ -26,7 +25,6 @@ func scale(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	// Do something with the WeightInfo struct...
-	fmt.Fprintf(w, "WeightInfo: %+v", info.WeightInfoToSign)
 	log.Printf("WeightInfo: %+v", info.WeightInfoToSign)
 }
 

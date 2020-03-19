@@ -1,13 +1,17 @@
 package main
 
 import (
-	"flag"
+	"github.com/BurntSushi/toml"
+	"log"
 	"serialdemo/service"
 )
 
 func main() {
-	tf := flag.Int("tf", 0, "指定通讯方式（0~8）")
-	flag.Parse()
-	pr := service.NewWeightReader("COM1")
-	pr.Listen(*tf)
+	var conf service.Config
+	if _, err := toml.DecodeFile("config.toml", &conf); err != nil {
+		log.Fatal(err)
+	}
+	if err := service.NewWeightReader(&conf).Listen(); err != nil {
+		log.Fatal(err)
+	}
 }

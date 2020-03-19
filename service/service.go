@@ -3,9 +3,6 @@ package service
 import (
 	"bufio"
 	"bytes"
-	"crypto/ecdsa"
-	"crypto/rand"
-	"crypto/sha256"
 	"encoding/json"
 	"fmt"
 	"github.com/tarm/serial"
@@ -17,11 +14,22 @@ import (
 
 var (
 	privateKey, _ = loadPrivateKey("private.key")
-	url           = "http://localhost:8080/scale"
 )
 
+type Config struct {
+	ScaleSN    string
+	Location   string
+	PortName   string
+	Baud       int
+	TF         int
+	Duration   int
+	Interval   int
+	Deviation  int
+	BackendURL string
+}
+
 type WeightReader struct {
-	portName string
+	*Config
 }
 
 type WeightInfo struct {
@@ -37,24 +45,26 @@ type WeightInfoToSign struct {
 	TimeStamp int64
 }
 
-func NewWeightReader(portName string) WeightReader {
-	return WeightReader{portName: portName}
+func NewWeightReader(conf *Config) *WeightReader {
+	return &WeightReader{
+		conf,
+	}
 }
 
-func (w *WeightReader) Listen(tf int) {
-	c := &serial.Config{Name: w.portName, Baud: 9600}
+func (w *WeightReader) Listen() error {
+	c := &serial.Config{Name: w.PortName, Baud: w.Baud}
 	s, err := serial.OpenPort(c)
 	if err != nil {
-		panic(err)
+		return err
 	}
-	log.Println("connected:", c.Name)
+	log.Println("connected to :", c.Name)
 	reader := bufio.NewReader(s)
-	cdc := protocal.NewCodec(tf)
-	log.Println("listening to: TF=", tf)
+	cdc := protocal.NewCodec(w.TF)
+	log.Println("listening to: TF=", w.TF)
 	for {
 		source, err := reader.ReadBytes(cdc.GetDelimit())
 		if err != nil {
-			panic(err)
+			log.Println("ERROR", err)
 		}
 		weight, err := cdc.Decode(source)
 		if err != nil {
@@ -72,11 +82,15 @@ func (w *WeightReader) post(weight string) error {
 	infoToSign := &WeightInfoToSign{
 		Weight:    weight,
 		Vehicle:   "vehicle1",
-		ScaleSN:   "scale1",
-		Location:  "location1",
+		ScaleSN:   w.ScaleSN,
+		Location:  w.Location,
 		TimeStamp: time.Now().Unix(),
 	}
-	weightInfo, err := w.sign(infoToSign)
+	weightInfo := &WeightInfo{
+		WeightInfoToSign: *infoToSign,
+	}
+	var err error
+	weightInfo.R, weightInfo.S, err = sign(infoToSign)
 	if err != nil {
 		return err
 	}
@@ -85,30 +99,10 @@ func (w *WeightReader) post(weight string) error {
 		return err
 	}
 	fmt.Println("post ", string(jsonValue))
-	resp, err := http.Post(url, "application/json", bytes.NewBuffer(jsonValue))
+	resp, err := http.Post(w.BackendURL, "application/json", bytes.NewBuffer(jsonValue))
 	if err != nil {
 		return err
 	}
 	fmt.Println("response Status:", resp.Status)
 	return nil
-}
-
-func (w *WeightReader) sign(infoToSign *WeightInfoToSign) (*WeightInfo, error) {
-	jsonValue, _ := json.Marshal(infoToSign)
-	fmt.Println("sign ", string(jsonValue))
-	r, s, err := ecdsa.Sign(rand.Reader, privateKey, Hash(jsonValue))
-	if err != nil {
-		return nil, err
-	}
-	info := &WeightInfo{
-		WeightInfoToSign: *infoToSign,
-	}
-	info.R, info.S = r.Bytes(), s.Bytes()
-	return info, nil
-}
-
-func Hash(b []byte) []byte {
-	h := sha256.New()
-	h.Write(b)
-	return h.Sum(nil)
 }
