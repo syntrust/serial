@@ -18,7 +18,7 @@ const (
 
 type Weigh interface {
 	encode(input string) ([]byte, error)
-	Send(data []float64, in chan []byte)
+	Send(data float64, in chan []byte)
 }
 
 func NewMock(tf int) Weigh {
@@ -47,6 +47,5 @@ func SerialOut(inputs chan []byte, portName string) {
 		if _, err = s.Write(item); err != nil {
 			panic(err)
 		}
-		//log.Printf("sent  %x\n", item)
 	}
 }

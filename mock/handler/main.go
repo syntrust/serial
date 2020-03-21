@@ -38,8 +38,8 @@ func main() {
 	mux := http.NewServeMux()
 	mux.HandleFunc("/scale", scale)
 	url := "0.0.0.0:8080"
+	log.Println("app backend listening:", url)
 	if err := http.ListenAndServe(url, mux); err != nil {
 		log.Fatal("ListenAndServe: ", err)
 	}
-	log.Println("ListenAndServe", url)
 }

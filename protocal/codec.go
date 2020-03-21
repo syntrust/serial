@@ -11,7 +11,7 @@ type codec interface {
 }
 
 type weight struct {
-	value  float64
+	Value  float64
 	sign   byte
 	digits int
 }
@@ -21,7 +21,7 @@ func (w weight) String() string {
 	if MINUS == w.sign {
 		result = append(result, MINUS)
 	}
-	core := fmt.Sprintf("%v", w.value)
+	core := fmt.Sprintf("%v", w.Value)
 	result = append(result, core...)
 	var digitValue int
 	if dotPos := strings.Index(core, "."); dotPos >= 0 {

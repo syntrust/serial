@@ -11,22 +11,18 @@ import (
 type Tf0Mock struct {
 }
 
-func (t Tf0Mock) Send(data []float64, in chan []byte) {
+func (t Tf0Mock) Send(data float64, in chan []byte) {
 	//max width: 7; max precision: 4
-	fmts := []string{"%.1f", "%+.1f", "%7.2f", "%6.f", "%7.4f"}
-	for _, f := range fmts {
-		fmt.Println("=======" + f + "===========")
-		for _, d := range data {
-			formatted := fmt.Sprintf(f, d)
-			item, err := t.encode(formatted)
-			if err != nil {
-				fmt.Println(err)
-				continue
-			}
-			in <- item
-			log.Printf("%s\t -> %x\n", formatted, item)
-		}
+	//fmts := []string{"%.1f", "%+.1f", "%7.2f", "%6.f", "%7.4f"}
+
+	formatted := fmt.Sprintf("%7.2f", data)
+	item, err := t.encode(formatted)
+	if err != nil {
+		fmt.Println(err)
+		return
 	}
+	in <- item
+	log.Printf("%s\t -> %x\n", formatted, item)
 }
 
 func (t Tf0Mock) encode(input string) ([]byte, error) {

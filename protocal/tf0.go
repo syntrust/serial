@@ -39,7 +39,7 @@ func (t tf0) Decode(source []byte) (weight, error) {
 		return weight{}, err
 	}
 	return weight{
-		value:  v,
+		Value:  v,
 		sign:   source[1],
 		digits: d,
 	}, nil

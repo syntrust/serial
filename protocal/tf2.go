@@ -44,7 +44,7 @@ func (t tf23) Decode(source []byte) (weight, error) {
 		return weight{}, err
 	}
 	return weight{
-		value:  v,
+		Value:  v,
 		sign:   byte(sign),
 		digits: bytes.Index(source, []byte(".")),
 	}, nil

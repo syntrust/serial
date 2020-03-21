@@ -10,24 +10,17 @@ type Tf23Mock struct {
 	frameLen int
 }
 
-func (t Tf23Mock) Send(data []float64, in chan []byte) {
+func (t Tf23Mock) Send(data float64, in chan []byte) {
 	//max width: 7
-	for _, d := range data {
-		formatted := fmt.Sprintf("%v", d)
-		item, err := t.encode(formatted)
-		if err != nil {
-			fmt.Println(err)
-			continue
-		}
-		var stream []byte
-		//continuously send 5 times
-		for i := 0; i < 5; i++ {
-			stream = append(stream, item...)
-			stream = append(stream, '=')
-		}
-		in <- stream
-		log.Printf("%s\t -> %x\n", formatted, stream)
+	formatted := fmt.Sprintf("%v", data)
+	item, err := t.encode(formatted)
+	if err != nil {
+		fmt.Println(err)
+		return
 	}
+	item = append(item, '=')
+	in <- item
+	log.Printf("%s\t -> %x\n", formatted, item)
 }
 
 func (t Tf23Mock) encode(input string) ([]byte, error) {
