@@ -7,19 +7,31 @@ import (
 	"net/http"
 )
 
-func Post(infoToSign WeightInfoToSign, backendURL string) error {
-
-	weightInfo := &WeightInfo{
-		WeightInfoToSign: infoToSign,
-	}
+func Post(msg interface{}, backendURL string) error {
+	var jsonValue []byte
 	var err error
-	weightInfo.R, weightInfo.S, err = sign(infoToSign)
-	if err != nil {
-		return err
-	}
-	jsonValue, err := json.Marshal(weightInfo)
-	if err != nil {
-		return err
+	switch value := msg.(type) {
+	case string:
+		weightInfo := &WeightInfo{
+			Error: value,
+		}
+		jsonValue, err = json.Marshal(weightInfo)
+		if err != nil {
+			return err
+		}
+		log.Println("case string", string(jsonValue))
+	case WeightInfoToSign:
+		weightInfo := &WeightInfo{
+			WeightInfoToSign: value,
+		}
+		weightInfo.R, weightInfo.S, err = sign(value)
+		if err != nil {
+			return err
+		}
+		jsonValue, err = json.Marshal(weightInfo)
+		if err != nil {
+			return err
+		}
 	}
 	log.Println("posted", string(jsonValue))
 	resp, err := http.Post(backendURL, "application/json", bytes.NewBuffer(jsonValue))

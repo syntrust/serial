@@ -9,8 +9,7 @@ import (
 )
 
 var (
-	timeout = time.Second * 10
-	conf    service.Config
+	conf service.Config
 )
 
 func init() {
@@ -23,23 +22,39 @@ func barOpen(w http.ResponseWriter, r *http.Request) {
 	vars := r.URL.Query()
 	v := vars.Get("vehicle")
 	checkout := vars.Get("checkout") == "true"
-	log.Println("drive in:", v, "checkout", checkout)
+	log.Println("truck", v, "checkout", checkout)
 	weightChan := make(chan string)
+	errChan := make(chan error)
+	stopChan := make(chan struct{})
+	var msg interface{}
 	go func() {
-		if err := service.NewWeightReader(&conf).Listen(weightChan); err != nil {
-			log.Fatal(err)
+		read := service.ScaleReader{
+			Config: &conf,
+		}
+		if err := read.Listen(weightChan, stopChan); err != nil {
+			log.Println("ERROR", err)
+			errChan <- err
 		}
 	}()
-	weit := <-weightChan
-	infoToSign := service.WeightInfoToSign{
-		Weight:    weit,
-		Vehicle:   v,
-		ScaleSN:   conf.ScaleSN,
-		Location:  conf.Location,
-		Checkout:  checkout,
-		TimeStamp: time.Now().Unix(),
+	select {
+	case weit := <-weightChan:
+		msg = service.WeightInfoToSign{
+			Weight:    weit,
+			Vehicle:   v,
+			ScaleSN:   conf.ScaleSN,
+			Location:  conf.Location,
+			Checkout:  checkout,
+			TimeStamp: time.Now().Unix(),
+		}
+	case err := <-errChan:
+		msg = err.Error()
+		log.Println("ERROR", err)
+	case <-time.After(time.Second * time.Duration(conf.Timeout)):
+		stopChan <- struct{}{}
+		msg = "ScaleReader timeout"
+		log.Println("ERROR", msg)
 	}
-	if err := service.Post(infoToSign, conf.BackendURL); err != nil {
+	if err := service.Post(msg, conf.BackendURL); err != nil {
 		log.Println("ERROR", err)
 	}
 }

@@ -11,11 +11,12 @@ import (
 )
 
 const (
-	cameraURL = "http://localhost:9090/bar"
-	duration  = 5
+	cameraURL     = "http://localhost:9090/bar"
+	duration      = 5
+	desiredStdDev = 0.02
 )
 
-var data = []float64{9.1, +20.00, 4252.97, 124.8209, 99984, 89.01, -1.8, 0.0, .622}
+var data = []float64{9.1, +20.00, 422.97, 124.8209, 984, 89.01, -1.8, .622}
 
 func main() {
 	//truck loaded and checkout
@@ -40,14 +41,21 @@ func main() {
 		mck := device.NewMock(*tf)
 		in := make(chan []byte)
 		go device.SerialOut(in, "COM2")
+		rand.Seed(time.Now().UnixNano())
 		r := rand.Intn(len(data))
+		fmt.Println("rand", r)
 		timer := time.NewTimer(time.Second * duration)
-	out:
+		raw := data[r]
+
 		for {
-			mck.Send(data[r], in)
+			sample := rand.NormFloat64()*desiredStdDev + raw
+			mck.Send(sample, in)
 			select {
 			case <-timer.C:
-				break out
+				mck.Send(raw/2, in)
+				time.Sleep(time.Second)
+				mck.Send(raw/4, in)
+				return
 			default:
 				continue
 			}

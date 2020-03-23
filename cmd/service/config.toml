@@ -4,8 +4,8 @@ Location = "沙场1"      #位置信息
 PortName = "COM1"       #串口名称
 Baud = 9600             #波特率
 TF = 0                  #通讯方式
-Duration = 3000         #取值持续时长(毫秒）
-Interval = 100          #读取间隔时长（毫秒）
+Duration = 3            #取值持续时长(秒）
+Timeout = 10            #读取超时（秒）
 Deviation = 20          #可接受误差（千克）
 
 #数据接收网址

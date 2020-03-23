@@ -15,7 +15,7 @@ func (t Tf0Mock) Send(data float64, in chan []byte) {
 	//max width: 7; max precision: 4
 	//fmts := []string{"%.1f", "%+.1f", "%7.2f", "%6.f", "%7.4f"}
 
-	formatted := fmt.Sprintf("%7.2f", data)
+	formatted := fmt.Sprintf("%6.3f", data)
 	item, err := t.encode(formatted)
 	if err != nil {
 		fmt.Println(err)

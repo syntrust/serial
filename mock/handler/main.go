@@ -19,7 +19,11 @@ func scale(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, err.Error(), http.StatusBadRequest)
 		return
 	}
-	if !verifySignature(info) {
+	if info.Error != "" {
+		log.Printf("received error: %+v", info.Error)
+		//TODO need to retry
+		return
+	} else if !verifySignature(info) {
 		log.Println("invalid signature!")
 		http.Error(w, "invalid signature", http.StatusUnauthorized)
 		return

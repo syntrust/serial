@@ -6,19 +6,19 @@ import (
 )
 
 type codec interface {
-	Decode(in []byte) (weight, error)
+	Decode(in []byte) (Weight, error)
 	GetDelimit() byte
 }
 
-type weight struct {
+type Weight struct {
 	Value  float64
-	sign   byte
-	digits int
+	Sign   byte
+	Digits int
 }
 
-func (w weight) String() string {
+func (w Weight) String() string {
 	var result []byte
-	if MINUS == w.sign {
+	if MINUS == w.Sign {
 		result = append(result, MINUS)
 	}
 	core := fmt.Sprintf("%v", w.Value)
@@ -27,7 +27,7 @@ func (w weight) String() string {
 	if dotPos := strings.Index(core, "."); dotPos >= 0 {
 		digitValue = len(core) - dotPos - 1
 	}
-	if digitDiff := w.digits - digitValue; digitDiff > 0 {
+	if digitDiff := w.Digits - digitValue; digitDiff > 0 {
 		if digitValue == 0 {
 			result = append(result, '.')
 		}

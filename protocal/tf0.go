@@ -21,13 +21,13 @@ func (t tf0) GetDelimit() byte {
 	return ETX
 }
 
-func (t tf0) Decode(source []byte) (weight, error) {
+func (t tf0) Decode(source []byte) (Weight, error) {
 	if len(source) != 12 || source[0] != STX || source[11] != ETX {
-		return weight{}, fmt.Errorf("invalid data: %x", source)
+		return Weight{}, fmt.Errorf("invalid data: %x", source)
 	}
 	h, l := getXOR(source)
 	if h != source[9] || l != source[10] {
-		return weight{}, fmt.Errorf("xor validation failed: %x", source)
+		return Weight{}, fmt.Errorf("xor validation failed: %x", source)
 	}
 	d := int(source[8] - OFFSET)
 	var vb []byte
@@ -36,12 +36,12 @@ func (t tf0) Decode(source []byte) (weight, error) {
 	vb = append(vb, source[8-d:8]...)
 	v, err := strconv.ParseFloat(string(vb), 64)
 	if err != nil {
-		return weight{}, err
+		return Weight{}, err
 	}
-	return weight{
+	return Weight{
 		Value:  v,
-		sign:   source[1],
-		digits: d,
+		Sign:   source[1],
+		Digits: d,
 	}, nil
 }
 

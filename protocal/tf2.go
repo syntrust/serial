@@ -19,9 +19,9 @@ type tf23 struct {
 func (t tf23) GetDelimit() byte {
 	return EQUAL
 }
-func (t tf23) Decode(source []byte) (weight, error) {
+func (t tf23) Decode(source []byte) (Weight, error) {
 	if len(source) != t.frameLen || source[t.frameLen-1] != EQUAL {
-		return weight{}, fmt.Errorf("invalid data: %x", source)
+		return Weight{}, fmt.Errorf("invalid data: %x", source)
 	}
 	var vb []byte
 	sign := PLUS
@@ -41,11 +41,11 @@ func (t tf23) Decode(source []byte) (weight, error) {
 	}
 	v, err := strconv.ParseFloat(string(vb), 64)
 	if err != nil {
-		return weight{}, err
+		return Weight{}, err
 	}
-	return weight{
+	return Weight{
 		Value:  v,
-		sign:   byte(sign),
-		digits: bytes.Index(source, []byte(".")),
+		Sign:   byte(sign),
+		Digits: bytes.Index(source, []byte(".")),
 	}, nil
 }
