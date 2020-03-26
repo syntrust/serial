@@ -13,7 +13,7 @@ import (
 const (
 	cameraURL     = "http://localhost:9090/bar"
 	duration      = 5
-	desiredStdDev = 0.05
+	desiredStdDev = 0.001
 )
 
 var data = []float64{9.1, +20.00, 422.97, 124.8209, 984, 89.01, -1.8, .622}

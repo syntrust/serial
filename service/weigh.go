@@ -45,58 +45,59 @@ type WeightInfoToSign struct {
 	TimeStamp int64
 }
 
-func (w *ScaleReader) Listen(wt chan string, stop chan struct{}) error {
+func (w *ScaleReader) Listen(result chan string, stop chan struct{}) error {
 	c := &serial.Config{Name: w.PortName, Baud: w.Baud}
 	s, err := serial.OpenPort(c)
 	if err != nil {
 		return fmt.Errorf("OpenPort failed: %v", err)
 	}
+	reader := bufio.NewReader(s)
 	defer func() {
 		if s != nil {
-			if err = s.Close(); err != nil {
-				fmt.Println("serial port close failed: ", err)
-			}
-			fmt.Println("serial port closed")
+			_ = s.Close()
 		}
-		fmt.Println("defer", "s == nil")
 	}()
 	log.Println("connected to:", c.Name, "TF=", w.TF)
+	wCh := make(chan protocal.Weight)
 
-	reader := bufio.NewReader(s)
-	cdc := protocal.NewCodec(w.TF)
+	go func() {
+		cdc := protocal.NewCodec(w.TF)
+		for {
+			raw, err := reader.ReadBytes(cdc.GetDelimit())
+			if err != nil {
+				log.Println("ReadBytes error", err)
+				//continue
+			}
+			w, err := cdc.Decode(raw)
+			if err != nil {
+				log.Println("Decode error", err)
+				//continue
+			}
+			wCh <- w
+			//fmt.Println("for weight", w)
+		}
+	}()
+	weight := <-wCh
+	fmt.Println("first weight", weight)
+	maxEver, max, min := weight.Value, weight.Value, weight.Value
 	timer := time.NewTimer(time.Second * time.Duration(w.Duration))
-	readWeight := func() protocal.Weight {
-		raw, err := reader.ReadBytes(cdc.GetDelimit())
-		if err != nil {
-			log.Println("ReadBytes error", err)
-		}
-		w, err := cdc.Decode(raw)
-		if err != nil {
-			log.Println("Decode error", err)
-		}
-		return w
-	}
-	weight := readWeight()
-	max, min := weight.Value, weight.Value
 	var final float64 = 0
 	for {
 		select {
 		case <-timer.C:
-			//after a few seconds of stable time, remember the maximum value ever
+			//remember the maximum value during last stable time window
 			final = max
 			fmt.Println("set final", final)
 		case <-stop:
-			log.Println("Listen stopped")
-			reader.Reset(s)
+			log.Println("Listen timeout, will stop. max value ever: ", maxEver)
 			return nil
-		default:
-			weight := readWeight()
+		case weight = <-wCh:
 			if weight.Value > max {
 				max = weight.Value
-				fmt.Println("set max=", max)
+				//fmt.Println("set max=", max)
 			} else if weight.Value < min {
 				min = weight.Value
-				fmt.Println("set min=", min)
+				//fmt.Println("set min=", min)
 			}
 			//it seems the truck is leaving when weight drops to 1/3 of the max
 			if final > 0 && weight.Value < final/3 {
@@ -105,7 +106,7 @@ func (w *ScaleReader) Listen(wt chan string, stop chan struct{}) error {
 					Sign:   weight.Sign,
 					Digits: weight.Digits,
 				}
-				wt <- theWeight.String()
+				result <- theWeight.String()
 				fmt.Println("weigh success:", theWeight.String())
 				return nil
 			}
@@ -113,10 +114,15 @@ func (w *ScaleReader) Listen(wt chan string, stop chan struct{}) error {
 			if final == 0 && max-min > float64(w.Deviation)/1000 {
 				d := time.Second * time.Duration(w.Duration)
 				timer.Reset(d)
+				if maxEver < max {
+					maxEver = max
+				}
 				max = weight.Value
 				min = weight.Value
 				log.Println("Reset: max", max)
 			}
+		default:
+
 		}
 	}
 }
