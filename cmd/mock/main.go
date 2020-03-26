@@ -13,7 +13,7 @@ import (
 const (
 	cameraURL     = "http://localhost:9090/bar"
 	duration      = 5
-	desiredStdDev = 0.02
+	desiredStdDev = 0.05
 )
 
 var data = []float64{9.1, +20.00, 422.97, 124.8209, 984, 89.01, -1.8, .622}
@@ -52,6 +52,7 @@ func main() {
 			mck.Send(sample, in)
 			select {
 			case <-timer.C:
+				//mock truck leaving
 				mck.Send(raw/2, in)
 				time.Sleep(time.Second)
 				mck.Send(raw/4, in)

@@ -63,11 +63,9 @@ func (w *ScaleReader) Listen(wt chan string, stop chan struct{}) error {
 	log.Println("connected to:", c.Name, "TF=", w.TF)
 
 	reader := bufio.NewReader(s)
-	var max, min, final float64
+	cdc := protocal.NewCodec(w.TF)
 	timer := time.NewTimer(time.Second * time.Duration(w.Duration))
-
 	readWeight := func() protocal.Weight {
-		cdc := protocal.NewCodec(w.TF)
 		raw, err := reader.ReadBytes(cdc.GetDelimit())
 		if err != nil {
 			log.Println("ReadBytes error", err)
@@ -79,13 +77,9 @@ func (w *ScaleReader) Listen(wt chan string, stop chan struct{}) error {
 		return w
 	}
 	weight := readWeight()
-	max = weight.Value
-	min = weight.Value
-	final = 0
-
+	max, min := weight.Value, weight.Value
+	var final float64 = 0
 	for {
-
-		//log.Printf("read: %x=>%s", raw, weight.String())
 		select {
 		case <-timer.C:
 			//after a few seconds of stable time, remember the maximum value ever
@@ -93,13 +87,16 @@ func (w *ScaleReader) Listen(wt chan string, stop chan struct{}) error {
 			fmt.Println("set final", final)
 		case <-stop:
 			log.Println("Listen stopped")
+			reader.Reset(s)
 			return nil
 		default:
 			weight := readWeight()
 			if weight.Value > max {
 				max = weight.Value
+				fmt.Println("set max=", max)
 			} else if weight.Value < min {
 				min = weight.Value
+				fmt.Println("set min=", min)
 			}
 			//it seems the truck is leaving when weight drops to 1/3 of the max
 			if final > 0 && weight.Value < final/3 {
@@ -113,12 +110,12 @@ func (w *ScaleReader) Listen(wt chan string, stop chan struct{}) error {
 				return nil
 			}
 			//fmt.Println("max", max, "min", min)
-			if final < 0 && max-min > float64(w.Deviation)/1000 {
+			if final == 0 && max-min > float64(w.Deviation)/1000 {
 				d := time.Second * time.Duration(w.Duration)
 				timer.Reset(d)
 				max = weight.Value
 				min = weight.Value
-				fmt.Println("Reset: max", max)
+				log.Println("Reset: max", max)
 			}
 		}
 	}

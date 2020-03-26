@@ -2,7 +2,6 @@ package device
 
 import (
 	"fmt"
-	"log"
 	"math"
 	"strconv"
 	"strings"
@@ -22,7 +21,8 @@ func (t Tf0Mock) Send(data float64, in chan []byte) {
 		return
 	}
 	in <- item
-	log.Printf("%s\t -> %x\n", formatted, item)
+	//log.Printf("%s\t -> %x\n", formatted, item)
+	fmt.Print(formatted + " ")
 }
 
 func (t Tf0Mock) encode(input string) ([]byte, error) {
