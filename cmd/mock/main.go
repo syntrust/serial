@@ -3,6 +3,7 @@ package main
 import (
 	"flag"
 	"fmt"
+	"log"
 	"math/rand"
 	"net/http"
 	"net/url"
@@ -43,22 +44,22 @@ func main() {
 		go device.SerialOut(in, "COM2")
 		rand.Seed(time.Now().UnixNano())
 		r := rand.Intn(len(data))
-		fmt.Println("rand", r)
 		timer := time.NewTimer(time.Second * duration)
+		timer1 := time.NewTimer(time.Millisecond * time.Duration(duration*1000-500))
 		raw := data[r]
-
+		total := 0
 		for {
-			sample := rand.NormFloat64()*desiredStdDev + raw
-			mck.Send(sample, in)
 			select {
 			case <-timer.C:
-				//mock truck leaving
-				mck.Send(raw/2, in)
-				time.Sleep(time.Second)
-				mck.Send(raw/4, in)
+				mck.Send(data[r]/4, in)
+				log.Println("total sent", total)
 				return
+			case <-timer1.C:
+				//mock truck leaving
+				raw = data[r] / 2
 			default:
-				continue
+				mck.Send(rand.NormFloat64()*desiredStdDev+raw, in)
+				total++
 			}
 		}
 	}()

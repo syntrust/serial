@@ -28,11 +28,10 @@ func barOpen(w http.ResponseWriter, r *http.Request) {
 	stopChan := make(chan struct{})
 	var msg interface{}
 	go func() {
-		read := service.ScaleReader{
+		sr := service.ScaleReader{
 			Config: &conf,
 		}
-		if err := read.Listen(weightChan, stopChan); err != nil {
-			log.Println("ERROR", err)
+		if err := sr.Listen(weightChan, stopChan); err != nil {
 			errChan <- err
 		}
 	}()
@@ -42,7 +41,7 @@ func barOpen(w http.ResponseWriter, r *http.Request) {
 			Weight:    weit,
 			Vehicle:   v,
 			ScaleSN:   conf.ScaleSN,
-			Location:  conf.Location,
+			SiteSN:    conf.SiteSN,
 			Checkout:  checkout,
 			TimeStamp: time.Now().Unix(),
 		}
@@ -57,6 +56,7 @@ func barOpen(w http.ResponseWriter, r *http.Request) {
 	if err := service.Post(msg, conf.BackendURL); err != nil {
 		log.Println("ERROR", err)
 	}
+	//stopChan <- struct{}{}
 }
 
 func main() {

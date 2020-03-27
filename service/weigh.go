@@ -15,7 +15,7 @@ var (
 
 type Config struct {
 	ScaleSN    string
-	Location   string
+	SiteSN     string
 	PortName   string
 	Baud       int
 	TF         int
@@ -40,45 +40,63 @@ type WeightInfoToSign struct {
 	Weight    string
 	Vehicle   string
 	ScaleSN   string
-	Location  string
+	SiteSN    string
 	Checkout  bool
 	TimeStamp int64
 }
 
 func (w *ScaleReader) Listen(result chan string, stop chan struct{}) error {
-	c := &serial.Config{Name: w.PortName, Baud: w.Baud}
-	s, err := serial.OpenPort(c)
-	if err != nil {
-		return fmt.Errorf("OpenPort failed: %v", err)
-	}
-	reader := bufio.NewReader(s)
-	defer func() {
-		if s != nil {
-			_ = s.Close()
-		}
-	}()
-	log.Println("connected to:", c.Name, "TF=", w.TF)
-	wCh := make(chan protocal.Weight)
 
+	wCh := make(chan protocal.Weight)
+	errCh := make(chan error)
+	quitCh := make(chan struct{})
 	go func() {
-		cdc := protocal.NewCodec(w.TF)
-		for {
-			raw, err := reader.ReadBytes(cdc.GetDelimit())
-			if err != nil {
-				log.Println("ReadBytes error", err)
-				//continue
-			}
-			w, err := cdc.Decode(raw)
-			if err != nil {
-				log.Println("Decode error", err)
-				//continue
-			}
-			wCh <- w
-			//fmt.Println("for weight", w)
+		c := &serial.Config{Name: w.PortName, Baud: w.Baud}
+		s, err := serial.OpenPort(c)
+		if err != nil {
+			errCh <- fmt.Errorf("OpenPort failed: %v", err)
+			return
 		}
+		defer func() {
+			if s != nil {
+				err = s.Close()
+				log.Println("s.Close()),", err)
+			} else {
+
+				log.Println("s  == nil ),", err)
+			}
+		}()
+		log.Println("connected to:", c.Name, "TF=", w.TF)
+		cdc := protocal.NewCodec(w.TF)
+		reader := bufio.NewReader(s)
+		go func() {
+			for {
+				raw, err := reader.ReadBytes(cdc.GetDelimit())
+				if err != nil {
+					log.Println("ReadBytes error", err)
+					//continue
+				}
+				w, err := cdc.Decode(raw)
+				if err != nil {
+					log.Println("Decode error", err)
+					//continue
+				}
+				//fmt.Println("for weight", w)
+				wCh <- w
+			}
+		}()
+
+		<-quitCh
+		log.Println("loop quit")
+		return
 	}()
-	weight := <-wCh
-	fmt.Println("first weight", weight)
+	var weight protocal.Weight
+	select {
+	case weight = <-wCh:
+		fmt.Println("first weight", weight)
+	case err := <-errCh:
+		return err
+	}
 	maxEver, max, min := weight.Value, weight.Value, weight.Value
 	timer := time.NewTimer(time.Second * time.Duration(w.Duration))
 	var final float64 = 0
@@ -89,6 +107,7 @@ func (w *ScaleReader) Listen(result chan string, stop chan struct{}) error {
 			final = max
 			fmt.Println("set final", final)
 		case <-stop:
+			quitCh <- struct{}{}
 			log.Println("Listen timeout, will stop. max value ever: ", maxEver)
 			return nil
 		case weight = <-wCh:
@@ -106,8 +125,12 @@ func (w *ScaleReader) Listen(result chan string, stop chan struct{}) error {
 					Sign:   weight.Sign,
 					Digits: weight.Digits,
 				}
+				log.Println("truck is leaving...")
+				go func() {
+					quitCh <- struct{}{}
+				}()
 				result <- theWeight.String()
-				fmt.Println("weigh success:", theWeight.String())
+				log.Println("weigh success:", theWeight.String())
 				return nil
 			}
 			//fmt.Println("max", max, "min", min)
