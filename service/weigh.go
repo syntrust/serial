@@ -2,6 +2,7 @@ package service
 
 import (
 	"bufio"
+	"context"
 	"fmt"
 	"github.com/tarm/serial"
 	"log"
@@ -45,58 +46,31 @@ type WeightInfoToSign struct {
 	TimeStamp int64
 }
 
-func (w *ScaleReader) Listen(result chan string, stop chan struct{}) error {
-
-	wCh := make(chan protocal.Weight)
-	errCh := make(chan error)
+func (w *ScaleReader) Listen(ctx context.Context, result chan string) error {
 	quitCh := make(chan struct{})
-	go func() {
-		c := &serial.Config{Name: w.PortName, Baud: w.Baud}
-		s, err := serial.OpenPort(c)
-		if err != nil {
-			errCh <- fmt.Errorf("OpenPort failed: %v", err)
-			return
-		}
-		defer func() {
-			if s != nil {
-				err = s.Close()
-				log.Println("s.Close()),", err)
-			} else {
-
-				log.Println("s  == nil ),", err)
-			}
-		}()
-		log.Println("connected to:", c.Name, "TF=", w.TF)
-		cdc := protocal.NewCodec(w.TF)
-		reader := bufio.NewReader(s)
-		go func() {
-			for {
-				raw, err := reader.ReadBytes(cdc.GetDelimit())
-				if err != nil {
-					log.Println("ReadBytes error", err)
-					//continue
-				}
-				w, err := cdc.Decode(raw)
-				if err != nil {
-					log.Println("Decode error", err)
-					//continue
-				}
-				//fmt.Println("for weight", w)
-				wCh <- w
-			}
-		}()
-
-		<-quitCh
-		log.Println("loop quit")
-		return
-	}()
-	var weight protocal.Weight
-	select {
-	case weight = <-wCh:
-		fmt.Println("first weight", weight)
-	case err := <-errCh:
-		return err
+	wCh := make(chan protocal.Weight, 1)
+	c := &serial.Config{Name: w.PortName, Baud: w.Baud}
+	s, err := serial.OpenPort(c)
+	if err != nil {
+		return fmt.Errorf("OpenPort failed: %v", err)
 	}
+	ctx, cancel := context.WithCancel(ctx)
+	defer func() {
+		cancel()
+		//<-quitCh
+		_ = s.Close()
+		log.Println("s.Close()")
+	}()
+
+	log.Println("connected to:", c.Name, "TF=", w.TF)
+
+	reader := bufio.NewReader(s)
+	go readSerial(ctx, wCh, quitCh, w.TF, *reader)
+
+	var weight protocal.Weight
+	weight = <-wCh
+	fmt.Println("first weight", weight)
+
 	maxEver, max, min := weight.Value, weight.Value, weight.Value
 	timer := time.NewTimer(time.Second * time.Duration(w.Duration))
 	var final float64 = 0
@@ -106,8 +80,7 @@ func (w *ScaleReader) Listen(result chan string, stop chan struct{}) error {
 			//remember the maximum value during last stable time window
 			final = max
 			fmt.Println("set final", final)
-		case <-stop:
-			quitCh <- struct{}{}
+		case <-ctx.Done():
 			log.Println("Listen timeout, will stop. max value ever: ", maxEver)
 			return nil
 		case weight = <-wCh:
@@ -126,10 +99,8 @@ func (w *ScaleReader) Listen(result chan string, stop chan struct{}) error {
 					Digits: weight.Digits,
 				}
 				log.Println("truck is leaving...")
-				go func() {
-					quitCh <- struct{}{}
-				}()
 				result <- theWeight.String()
+				cancel()
 				log.Println("weigh success:", theWeight.String())
 				return nil
 			}
@@ -146,6 +117,38 @@ func (w *ScaleReader) Listen(result chan string, stop chan struct{}) error {
 			}
 		default:
 
+		}
+	}
+}
+
+func readSerial(ctx context.Context, wCh chan protocal.Weight, quitCh chan struct{}, tf int, reader bufio.Reader) {
+	//defer func() {
+	//	quitCh <- struct{}{}
+	//}()
+	cdc := protocal.NewCodec(tf)
+	for {
+		select {
+		case <-ctx.Done():
+			log.Println("loop quit")
+			return
+		default:
+			raw, err := reader.ReadBytes(cdc.GetDelimit())
+			if err != nil {
+				log.Println("ReadBytes error", err)
+				//continue
+			}
+			decoded, err := cdc.Decode(raw)
+			if err != nil {
+				log.Println("Decode error", err)
+				//continue
+			}
+
+			wCh <- decoded
+			//select {
+			//case wCh <- decoded:
+			//default:
+			//
+			//}
 		}
 	}
 }

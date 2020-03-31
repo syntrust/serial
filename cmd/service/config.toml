@@ -1,5 +1,5 @@
 
-ScaleSN = "地磅1"           #地磅序列号
+ScaleSN = "地磅1"       #地磅序列号
 SiteSN = "沙场1"        #位置信息
 PortName = "COM1"       #串口名称
 Baud = 9600             #波特率
