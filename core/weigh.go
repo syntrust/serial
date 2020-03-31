@@ -10,10 +10,6 @@ import (
 	"time"
 )
 
-var (
-	privateKey, _ = loadPrivateKey("private.key")
-)
-
 type Config struct {
 	ScaleSN    string
 	SiteSN     string
@@ -24,10 +20,6 @@ type Config struct {
 	Timeout    int
 	Deviation  int
 	BackendURL string
-}
-
-type ScaleReader struct {
-	*Config
 }
 
 type WeightInfo struct {
@@ -46,33 +38,18 @@ type WeightInfoToSign struct {
 	TimeStamp int64
 }
 
-func (w *ScaleReader) Listen(ctx context.Context, result chan string) error {
-	quitCh := make(chan struct{})
-	wCh := make(chan protocal.Weight, 1)
-	c := &serial.Config{Name: w.PortName, Baud: w.Baud}
-	s, err := serial.OpenPort(c)
-	if err != nil {
-		return fmt.Errorf("OpenPort failed: %v", err)
-	}
-	ctx, cancel := context.WithCancel(ctx)
+func Weigh(ctx context.Context, conf Config, wCh <-chan protocal.Weight, result chan<- string) error {
+
 	defer func() {
-		cancel()
-		//<-quitCh
-		_ = s.Close()
 		log.Println("s.Close()")
 	}()
-
-	log.Println("connected to:", c.Name, "TF=", w.TF)
-
-	reader := bufio.NewReader(s)
-	go readSerial(ctx, wCh, quitCh, w.TF, *reader)
 
 	var weight protocal.Weight
 	weight = <-wCh
 	fmt.Println("first weight", weight)
 
 	maxEver, max, min := weight.Value, weight.Value, weight.Value
-	timer := time.NewTimer(time.Second * time.Duration(w.Duration))
+	timer := time.NewTimer(time.Second * time.Duration(conf.Duration))
 	var final float64 = 0
 	for {
 		select {
@@ -100,13 +77,12 @@ func (w *ScaleReader) Listen(ctx context.Context, result chan string) error {
 				}
 				log.Println("truck is leaving...")
 				result <- theWeight.String()
-				cancel()
 				log.Println("weigh success:", theWeight.String())
 				return nil
 			}
 			//fmt.Println("max", max, "min", min)
-			if final == 0 && max-min > float64(w.Deviation)/1000 {
-				d := time.Second * time.Duration(w.Duration)
+			if final == 0 && max-min > float64(conf.Deviation)/1000 {
+				d := time.Second * time.Duration(conf.Duration)
 				timer.Reset(d)
 				if maxEver < max {
 					maxEver = max
@@ -121,16 +97,26 @@ func (w *ScaleReader) Listen(ctx context.Context, result chan string) error {
 	}
 }
 
-func readSerial(ctx context.Context, wCh chan protocal.Weight, quitCh chan struct{}, tf int, reader bufio.Reader) {
-	//defer func() {
-	//	quitCh <- struct{}{}
-	//}()
-	cdc := protocal.NewCodec(tf)
+func ListenWeight(conf Config, wCh chan protocal.Weight, quitCh chan struct{}) error {
+	c := &serial.Config{Name: conf.PortName, Baud: conf.Baud}
+	s, err := serial.OpenPort(c)
+	if err != nil {
+		return fmt.Errorf("OpenPort failed: %v", err)
+	}
+	defer func() {
+		_ = s.Close()
+		log.Println("s.Close()")
+	}()
+	log.Println("connected to:", c.Name, "TF=", conf.TF)
+
+	reader := bufio.NewReader(s)
+	cdc := protocal.NewCodec(conf.TF)
 	for {
 		select {
-		case <-ctx.Done():
-			log.Println("loop quit")
-			return
+		case <-quitCh:
+			//reader.Reset(s)
+			//log.Println("reader.Reset()")
+			return nil
 		default:
 			raw, err := reader.ReadBytes(cdc.GetDelimit())
 			if err != nil {
@@ -144,11 +130,6 @@ func readSerial(ctx context.Context, wCh chan protocal.Weight, quitCh chan struc
 			}
 
 			wCh <- decoded
-			//select {
-			//case wCh <- decoded:
-			//default:
-			//
-			//}
 		}
 	}
 }
