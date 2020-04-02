@@ -2,6 +2,7 @@ package device
 
 import (
 	"github.com/tarm/serial"
+	"time"
 )
 
 const (
@@ -47,5 +48,7 @@ func SerialOut(inputs chan []byte, portName string) {
 		if _, err = s.Write(item); err != nil {
 			panic(err)
 		}
+		//paud=9600
+		time.Sleep(time.Duration(10) * time.Millisecond)
 	}
 }

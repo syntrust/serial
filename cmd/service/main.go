@@ -1,9 +1,12 @@
 package main
 
 import (
+	"context"
+	"fmt"
 	"github.com/BurntSushi/toml"
 	"log"
 	"net/http"
+	_ "net/http/pprof"
 	"serialdemo/service"
 	"time"
 )
@@ -25,14 +28,15 @@ func barOpen(w http.ResponseWriter, r *http.Request) {
 	log.Println("truck", v, "checkout", checkout)
 	weightChan := make(chan string)
 	errChan := make(chan error)
-	stopChan := make(chan struct{})
 	var msg interface{}
+
+	ctx, cancel := context.WithTimeout(context.Background(), time.Second*time.Duration(conf.Timeout))
+	defer cancel()
 	go func() {
-		read := service.ScaleReader{
+		sr := service.ScaleReader{
 			Config: &conf,
 		}
-		if err := read.Listen(weightChan, stopChan); err != nil {
-			log.Println("ERROR", err)
+		if err := sr.Listen(ctx, weightChan); err != nil {
 			errChan <- err
 		}
 	}()
@@ -42,24 +46,34 @@ func barOpen(w http.ResponseWriter, r *http.Request) {
 			Weight:    weit,
 			Vehicle:   v,
 			ScaleSN:   conf.ScaleSN,
-			Location:  conf.Location,
+			SiteSN:    conf.SiteSN,
 			Checkout:  checkout,
 			TimeStamp: time.Now().Unix(),
 		}
 	case err := <-errChan:
 		msg = err.Error()
 		log.Println("ERROR", err)
-	case <-time.After(time.Second * time.Duration(conf.Timeout)):
-		stopChan <- struct{}{}
+	case <-ctx.Done():
 		msg = "ScaleReader timeout"
 		log.Println("ERROR", msg)
 	}
 	if err := service.Post(msg, conf.BackendURL); err != nil {
 		log.Println("ERROR", err)
 	}
+	//stopChan <- struct{}{}
+	<-ctx.Done()
+	msg = "process timeout"
+	log.Println("ERROR", msg)
 }
 
 func main() {
+	go func() {
+
+		ip := "0.0.0.0:6060"
+		if err := http.ListenAndServe(ip, nil); err != nil {
+			fmt.Printf("start pprof failed on %s\n", ip)
+		}
+	}()
 	mux := http.NewServeMux()
 	mux.HandleFunc("/bar", barOpen)
 	url := "0.0.0.0:9090"
